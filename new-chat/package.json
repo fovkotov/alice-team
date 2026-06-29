@@ -1,8 +1,0 @@
-{
-  "name": "cherry-storm",
-  "private": true,
-  "version": "1.0.0",
-  "scripts": {
-    "dev": "python3 -m http.server 4173 --bind 127.0.0.1"
-  }
-}

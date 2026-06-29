@@ -1,6 +1,5 @@
 # alice team
 
-Интерактивные композиции.
+Cherry Storm — интерактивная композиция с шарами.
 
-- [Cherry Storm](new-chat/)
-- [Orbital](clt/)
+https://fovkotov.github.io/alice-team/
