@@ -1,0 +1,52 @@
+.gate {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  background: #000;
+  color: #f4f4f4;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+.gate form {
+  display: grid;
+  gap: 14px;
+  width: min(280px, 80vw);
+  text-align: center;
+}
+
+.gate input {
+  border: 0;
+  border-bottom: 1px solid #555;
+  padding: 10px 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: center;
+  outline: none;
+}
+
+.gate input:focus {
+  border-bottom-color: #fff;
+}
+
+.gate button {
+  border: 0;
+  padding: 10px 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  opacity: .7;
+}
+
+.gate button:hover {
+  opacity: 1;
+}
+
+.gate .error {
+  min-height: 1em;
+  color: #888;
+  font-size: 12px;
+}

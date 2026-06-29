@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orbital — Interactive Study</title>
+  </head>
+  <body>
+    <main id="app">
+      <section class="scene" aria-label="Интерактивная сцена">
+        <video id="film" src="public/1.mp4" muted loop playsinline preload="auto"></video>
+        <canvas id="orbs"></canvas>
+        <header>
+          <a class="logo" href="#" aria-label="Orbital, главная">ORBITAL<span>®</span></a>
+          <p>INTERACTIVE<br />STUDY · 2026</p>
+          <button id="sound" type="button" aria-label="Включить звук">SOUND OFF</button>
+        </header>
+        <div class="intro">
+          <h1>KEEP<br />MOVING</h1>
+          <p>SCROLL TO DISTURB<br />HOVER TO REVEAL</p>
+        </div>
+        <p class="counter"><span id="active">00</span> / 12</p>
+        <div class="scroll-cue"><i></i><span>SCROLL</span></div>
+      </section>
+      <div class="scroll-space" aria-hidden="true"></div>
+    </main>
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>

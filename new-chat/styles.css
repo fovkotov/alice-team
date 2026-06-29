@@ -1,0 +1,86 @@
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: #000; }
+body { overflow-x: hidden; font-family: "Suisse Intl", "Helvetica Neue", Arial, sans-serif; }
+
+.stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+  cursor: crosshair;
+}
+
+.media-layer,
+.hover-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.media-layer { opacity: 0; transition: opacity 60ms linear; }
+.hover-media {
+  object-fit: cover;
+  opacity: 0;
+  filter: saturate(.9) contrast(1.05);
+}
+.stage.has-media .media-layer,
+.hover-media.is-active { opacity: 1; }
+
+#storm { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+.grain {
+  position: absolute;
+  inset: -50%;
+  pointer-events: none;
+  opacity: .035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.9'/%3E%3C/svg%3E");
+  animation: grain .25s steps(2) infinite;
+}
+
+.caption {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(38px, 7.4vh, 72px);
+  z-index: 3;
+  margin: 0;
+  color: #f4f4f4;
+  font-size: 40px;
+  line-height: .86;
+  letter-spacing: -.055em;
+  text-align: center;
+  transform: translateX(-50%);
+  transition: opacity 100ms linear;
+  pointer-events: none;
+}
+
+.logo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  width: 53px;
+  height: 52px;
+  transform: translate(-50%, -50%);
+  transition: opacity 60ms linear;
+  pointer-events: none;
+}
+
+.stage.is-hovering .caption, .stage.is-hovering .logo { opacity: 0; }
+.scroll-space { height: 420vh; }
+
+@keyframes grain {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(2%, -2%); }
+  50% { transform: translate(-2%, 1%); }
+  75% { transform: translate(1%, 2%); }
+}
+
+@media (max-width: 640px) {
+  .caption { bottom: 38px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain { animation: none; }
+}
