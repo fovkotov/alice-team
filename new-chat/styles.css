@@ -9,6 +9,11 @@ body { overflow-x: hidden; font-family: "Suisse Intl", "Helvetica Neue", Arial, 
   overflow: hidden;
   background: #000;
   cursor: crosshair;
+  touch-action: none;
+}
+
+.stage.is-dragging {
+  cursor: grabbing;
 }
 
 .media-layer,
@@ -48,10 +53,10 @@ body { overflow-x: hidden; font-family: "Suisse Intl", "Helvetica Neue", Arial, 
   color: #f4f4f4;
   font-size: 40px;
   line-height: .86;
-  letter-spacing: -.055em;
+  letter-spacing: normal;
   text-align: center;
   transform: translateX(-50%);
-  transition: opacity 100ms linear;
+  transition: color 80ms linear;
   pointer-events: none;
 }
 
@@ -67,7 +72,12 @@ body { overflow-x: hidden; font-family: "Suisse Intl", "Helvetica Neue", Arial, 
   pointer-events: none;
 }
 
-.stage.is-hovering .caption, .stage.is-hovering .logo { opacity: 0; }
+.stage.is-hovering .logo { opacity: 0; }
+
+.stage.is-hovering .caption {
+  color: #fff;
+  mix-blend-mode: difference;
+}
 .scroll-space { height: 420vh; }
 
 @keyframes grain {

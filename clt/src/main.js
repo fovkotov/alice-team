@@ -9,6 +9,10 @@ const sound = document.querySelector('#sound');
 const orbs = [];
 const pointer = { x: -1000, y: -1000, inside: false };
 let hovered = -1;
+let dragging = -1;
+let dragOffset = { x: 0, y: 0 };
+let dragVel = { x: 0, y: 0 };
+let lastDrag = { x: 0, y: 0, t: 0 };
 let scrollEnergy = 0;
 let lastScroll = scrollY;
 let lastTime = performance.now();
@@ -41,14 +45,37 @@ function seed() {
   }));
 }
 
+function orbAt(x, y) {
+  return orbs.findIndex(o => Math.hypot(x - o.x, y - o.y) <= o.r);
+}
+
+function clampOrb(o) {
+  o.x = Math.max(o.r, Math.min(innerWidth - o.r, o.x));
+  o.y = Math.max(o.r, Math.min(innerHeight - o.r, o.y));
+}
+
+function dragCollision(dragged, other) {
+  const dx = other.x - dragged.x, dy = other.y - dragged.y;
+  const min = dragged.r + other.r;
+  const dist = Math.hypot(dx, dy);
+  if (!dist || dist >= min) return;
+  const nx = dx / dist, ny = dy / dist;
+  const overlap = min - dist;
+  other.x += nx * overlap;
+  other.y += ny * overlap;
+  other.vx += nx * overlap * 10;
+  other.vy += ny * overlap * 10;
+  clampOrb(other);
+}
+
 function applyScrollKick(amount) {
   if (!orbs.length || amount <= 0) return;
   const strength = Math.min(5, amount / 18);
-  scrollEnergy = Math.min(80, scrollEnergy + strength * 14);
+  scrollEnergy = Math.min(80, scrollEnergy + strength * 7);
   const span = Math.max(innerWidth, innerHeight);
   for (const o of orbs) {
     const angle = Math.random() * Math.PI * 2;
-    const kick = span * (.5 + strength * .9 + Math.min(scrollEnergy, 50) * .02);
+    const kick = span * (.25 + strength * .45 + Math.min(scrollEnergy, 50) * .01);
     o.vx += Math.cos(angle) * kick;
     o.vy += Math.sin(angle) * kick;
   }
@@ -59,7 +86,9 @@ function physics(dt) {
   const wallBounce = energized ? .68 + Math.min(scrollEnergy, 50) * .004 : .85;
   const bounce = energized ? .74 + Math.min(scrollEnergy, 50) * .004 : .82;
   const drag = Math.pow(.962, dt * 60);
-  for (const o of orbs) {
+  for (let i = 0; i < orbs.length; i++) {
+    const o = orbs[i];
+    if (i === dragging) continue;
     o.vx *= drag;
     o.vy *= drag;
     o.x += o.vx * dt;
@@ -76,6 +105,9 @@ function physics(dt) {
     }
   }
   for (let i=0;i<orbs.length;i++) for(let j=i+1;j<orbs.length;j++) {
+    if (i === dragging) dragCollision(orbs[i], orbs[j]);
+    else if (j === dragging) dragCollision(orbs[j], orbs[i]);
+    else {
     const a=orbs[i], b=orbs[j], dx=b.x-a.x, dy=b.y-a.y;
     const dist=Math.hypot(dx,dy), min=a.r+b.r;
     if (dist && dist < min) {
@@ -84,6 +116,7 @@ function physics(dt) {
       a.x-=nx*overlap; a.y-=ny*overlap; b.x+=nx*overlap; b.y+=ny*overlap;
       const p=2*(a.vx*nx+a.vy*ny-b.vx*nx-b.vy*ny)/2 * bounce;
       a.vx-=p*nx; a.vy-=p*ny; b.vx+=p*nx; b.vy+=p*ny;
+    }
     }
   }
   scrollEnergy *= Math.pow(.965, dt*60);
@@ -109,22 +142,73 @@ function draw() {
 
 function frame(now) {
   const dt=Math.min((now-lastTime)/1000,.025); lastTime=now;
-  if (hovered < 0) physics(dt);
+  physics(dt);
   updateHover();
   draw(); requestAnimationFrame(frame);
 }
 
 function updateHover() {
-  const next = pointer.inside ? orbs.findIndex(o=>Math.hypot(pointer.x-o.x,pointer.y-o.y)<=o.r) : -1;
+  const next = dragging >= 0 ? dragging : (pointer.inside ? orbAt(pointer.x, pointer.y) : -1);
   if(next===hovered) return;
   hovered=next; activeLabel.textContent=hovered<0?'00':String(hovered+1).padStart(2,'0');
   document.body.classList.toggle('revealed',hovered>=0);
-  canvas.style.cursor=hovered>=0?'none':'crosshair';
+  canvas.style.cursor=dragging>=0?'grabbing':hovered>=0?'grab':'crosshair';
   if(hovered>=0) video.play().catch(()=>{}); else { video.pause(); video.currentTime=0; }
 }
 
-addEventListener('pointermove',e=>{pointer.x=e.clientX;pointer.y=e.clientY;pointer.inside=true;updateHover()});
-addEventListener('pointerleave',()=>{pointer.inside=false;updateHover()});
+function onPointerMove(e) {
+  pointer.x = e.clientX;
+  pointer.y = e.clientY;
+  pointer.inside = true;
+  if (dragging >= 0) {
+    const o = orbs[dragging];
+    const now = performance.now();
+    const dt = Math.max(1, now - lastDrag.t) / 1000;
+    dragVel.x = (e.clientX - lastDrag.x) / dt;
+    dragVel.y = (e.clientY - lastDrag.y) / dt;
+    lastDrag = { x: e.clientX, y: e.clientY, t: now };
+    o.x = e.clientX - dragOffset.x;
+    o.y = e.clientY - dragOffset.y;
+    clampOrb(o);
+    for (let j = 0; j < orbs.length; j++) {
+      if (j !== dragging) dragCollision(o, orbs[j]);
+    }
+    updateHover();
+    return;
+  }
+  updateHover();
+}
+
+function endDrag(e) {
+  if (dragging < 0) return;
+  orbs[dragging].vx = dragVel.x * .82;
+  orbs[dragging].vy = dragVel.y * .82;
+  dragging = -1;
+  if (e?.pointerId != null) canvas.releasePointerCapture(e.pointerId);
+  updateHover();
+}
+
+canvas.addEventListener('pointerdown', e => {
+  const i = orbAt(e.clientX, e.clientY);
+  if (i < 0) return;
+  dragging = i;
+  const o = orbs[i];
+  dragOffset.x = e.clientX - o.x;
+  dragOffset.y = e.clientY - o.y;
+  dragVel.x = 0;
+  dragVel.y = 0;
+  lastDrag = { x: e.clientX, y: e.clientY, t: performance.now() };
+  o.vx = 0;
+  o.vy = 0;
+  canvas.setPointerCapture(e.pointerId);
+  updateHover();
+  e.preventDefault();
+});
+
+canvas.addEventListener('pointermove', onPointerMove);
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+addEventListener('pointerleave', () => { pointer.inside = dragging >= 0; if (dragging < 0) updateHover(); });
 addEventListener('scroll',()=>{const delta=Math.abs(scrollY-lastScroll);lastScroll=scrollY;applyScrollKick(delta)},{passive:true});
 addEventListener('wheel',e=>{applyScrollKick(Math.abs(e.deltaY))},{passive:true});
 addEventListener('resize',resize);

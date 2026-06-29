@@ -1,5 +1,21 @@
 const canvas = document.querySelector('#storm');
 const stage = document.querySelector('.stage');
+const caption = document.querySelector('.caption');
+const defaultCaption = caption.innerHTML;
+const hoverCaptions = [
+  ['проект команды', 'коммуникационного дизайна'],
+  ['студия визуальных', 'коммуникаций'],
+  ['креативная команда', 'дизайн студии'],
+  ['лаборатория смыслов', 'и форм'],
+  ['визуальный язык', 'бренда команды'],
+  ['коммуникационный дизайн', 'как практика'],
+  ['команда смыслов', 'и образов'],
+  ['дизайн как', 'диалог бренда'],
+  ['студия коммуникаций', 'и культуры'],
+  ['проект визуальной', 'коммуникации команды'],
+  ['креативная лаборатория', 'коммуникационного дизайна'],
+  ['команда визуальных', 'коммуникаций']
+];
 const media = [
   document.querySelector('#hover-video'),
   document.querySelector('#hover-image-1'),
@@ -77,6 +93,10 @@ let width = 0;
 let height = 0;
 let dpr = 1;
 let hovered = -1;
+let dragging = -1;
+let dragOffset = { x: 0, y: 0 };
+let dragVel = { x: 0, y: 0 };
+let lastDrag = { x: 0, y: 0, t: 0 };
 let lastY = window.scrollY;
 let scrollBoost = 0;
 let pointer = { x: -9999, y: -9999 };
@@ -112,6 +132,29 @@ function resize() {
   });
 }
 
+function ballAt(x, y) {
+  return balls.findIndex(b => Math.hypot(x - b.x, y - b.y) < b.r);
+}
+
+function clampBall(b) {
+  b.x = Math.min(width - b.r, Math.max(b.r, b.x));
+  b.y = Math.min(height - b.r, Math.max(b.r, b.y));
+}
+
+function dragCollision(dragged, other) {
+  const dx = other.x - dragged.x, dy = other.y - dragged.y;
+  const min = dragged.r + other.r + 2;
+  const dist = Math.hypot(dx, dy);
+  if (!dist || dist >= min) return;
+  const nx = dx / dist, ny = dy / dist;
+  const overlap = min - dist;
+  other.x += nx * overlap;
+  other.y += ny * overlap;
+  other.vx += nx * overlap * 10;
+  other.vy += ny * overlap * 10;
+  clampBall(other);
+}
+
 function collision(a, b) {
   const dx = b.x-a.x, dy = b.y-a.y;
   const min = a.r+b.r+2;
@@ -133,11 +176,11 @@ function collision(a, b) {
 function applyScrollKick(amount) {
   if (!balls.length || amount <= 0) return;
   const strength = Math.min(5, amount / 18);
-  scrollBoost = Math.min(1, scrollBoost + strength * .65);
+  scrollBoost = Math.min(1, scrollBoost + strength * .325);
   const span = Math.max(width, height);
   for (const b of balls) {
     const angle = Math.random() * Math.PI * 2;
-    const kick = span * (.55 + strength * .95 + scrollBoost * .75);
+    const kick = span * (.275 + strength * .475 + scrollBoost * .375);
     b.vx += Math.cos(angle) * kick;
     b.vy += Math.sin(angle) * kick;
   }
@@ -148,7 +191,9 @@ function update(dt) {
   const wallBounce = .62 + scrollBoost * .14;
   const drag = Math.pow(.965, dt * 60);
   stage.dataset.speed = scrollBoost.toFixed(2);
-  for (const b of balls) {
+  for (let i = 0; i < balls.length; i++) {
+    const b = balls[i];
+    if (i === dragging) continue;
     b.vx *= drag;
     b.vy *= drag;
     if (scrollBoost < .08) {
@@ -163,13 +208,26 @@ function update(dt) {
     if (b.y < b.r) { b.y=b.r; b.vy=Math.abs(b.vy)*wallBounce; }
     if (b.y > height-b.r) { b.y=height-b.r; b.vy=-Math.abs(b.vy)*wallBounce; }
   }
-  for (let i=0;i<balls.length;i++) for(let j=i+1;j<balls.length;j++) collision(balls[i],balls[j]);
+  for (let i = 0; i < balls.length; i++) {
+    for (let j = i + 1; j < balls.length; j++) {
+      if (i === dragging) dragCollision(balls[i], balls[j]);
+      else if (j === dragging) dragCollision(balls[j], balls[i]);
+      else collision(balls[i], balls[j]);
+    }
+  }
+}
+
+function pickHoverCaption() {
+  const [a, b] = hoverCaptions[Math.floor(Math.random() * hoverCaptions.length)];
+  return `${a}<br />${b}`;
 }
 
 function hitTest() {
   const previousHover = hovered;
-  hovered = balls.findIndex(b => Math.hypot(pointer.x-b.x, pointer.y-b.y) < b.r);
+  hovered = dragging >= 0 ? dragging : ballAt(pointer.x, pointer.y);
   stage.classList.toggle('is-hovering', hovered >= 0);
+  if (hovered >= 0 && hovered !== previousHover) caption.innerHTML = pickHoverCaption();
+  else if (hovered < 0 && previousHover >= 0) caption.innerHTML = defaultCaption;
   const activeIndex = hovered >= 0 ? balls[hovered].mediaIndex : -1;
   stage.classList.toggle('has-media', activeIndex >= 0);
   media.forEach((item, index) => item.classList.toggle('is-active', index === activeIndex));
@@ -201,8 +259,60 @@ function frame(now) {
 }
 
 addEventListener('resize', resize);
-addEventListener('pointermove', e => { pointer.x=e.clientX; pointer.y=e.clientY; });
-addEventListener('pointerleave', () => { pointer.x=-9999; pointer.y=-9999; });
+
+function onPointerMove(e) {
+  pointer.x = e.clientX;
+  pointer.y = e.clientY;
+  if (dragging < 0) return;
+  const b = balls[dragging];
+  const now = performance.now();
+  const dt = Math.max(1, now - lastDrag.t) / 1000;
+  dragVel.x = (e.clientX - lastDrag.x) / dt;
+  dragVel.y = (e.clientY - lastDrag.y) / dt;
+  lastDrag = { x: e.clientX, y: e.clientY, t: now };
+  b.x = e.clientX - dragOffset.x;
+  b.y = e.clientY - dragOffset.y;
+  clampBall(b);
+  for (let j = 0; j < balls.length; j++) {
+    if (j !== dragging) dragCollision(b, balls[j]);
+  }
+}
+
+function endDrag(e) {
+  if (dragging < 0) return;
+  balls[dragging].vx = dragVel.x * .82;
+  balls[dragging].vy = dragVel.y * .82;
+  dragging = -1;
+  stage.classList.remove('is-dragging');
+  if (e?.pointerId != null) stage.releasePointerCapture(e.pointerId);
+}
+
+stage.addEventListener('pointerdown', e => {
+  const i = ballAt(e.clientX, e.clientY);
+  if (i < 0) return;
+  dragging = i;
+  const b = balls[i];
+  dragOffset.x = e.clientX - b.x;
+  dragOffset.y = e.clientY - b.y;
+  dragVel.x = 0;
+  dragVel.y = 0;
+  lastDrag = { x: e.clientX, y: e.clientY, t: performance.now() };
+  b.vx = 0;
+  b.vy = 0;
+  stage.classList.add('is-dragging');
+  stage.setPointerCapture(e.pointerId);
+  e.preventDefault();
+});
+
+stage.addEventListener('pointermove', onPointerMove);
+stage.addEventListener('pointerup', endDrag);
+stage.addEventListener('pointercancel', endDrag);
+addEventListener('pointerleave', () => {
+  if (dragging < 0) {
+    pointer.x = -9999;
+    pointer.y = -9999;
+  }
+});
 addEventListener('scroll', () => {
   const delta = Math.abs(scrollY-lastY);
   lastY = scrollY;
