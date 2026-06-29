@@ -176,11 +176,11 @@ function collision(a, b) {
 function applyScrollKick(amount) {
   if (!balls.length || amount <= 0) return;
   const strength = Math.min(5, amount / 18);
-  scrollBoost = Math.min(1, scrollBoost + strength * .325);
+  scrollBoost = Math.min(1, scrollBoost + strength * .1625);
   const span = Math.max(width, height);
   for (const b of balls) {
     const angle = Math.random() * Math.PI * 2;
-    const kick = span * (.275 + strength * .475 + scrollBoost * .375);
+    const kick = span * (.1375 + strength * .2375 + scrollBoost * .1875);
     b.vx += Math.cos(angle) * kick;
     b.vy += Math.sin(angle) * kick;
   }
